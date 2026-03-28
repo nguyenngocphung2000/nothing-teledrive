@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #1a73e8;
+  --color-sidebar: #f8fafc;
+  --color-sidebar-dark: #020617;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
