@@ -44,7 +44,6 @@ export const en = {
   noFolder: 'None',
 
   trash: 'Trash (Telegram)',
-  used: 'Used',
 
   dropHint: 'Drag & drop or choose files — any type, up to 2 GB each (Telegram limit).',
   uploading: 'Uploading…',
@@ -99,6 +98,13 @@ export const en = {
   selectedCount: '{n} selected',
   deleteSelected: 'Delete selected',
   downloadSelected: 'Download selected',
+
+  downloadAll: 'Download all',
+  downloadAllConfirm:
+    'Download all {n} files? They download one by one so the page stays responsive.',
+  downloadAllQueue: 'All files ({current}/{total})',
+  loadMoreFiles: 'Load more',
+  listPartial: 'Showing {shown} of {total}. Load more or narrow search.',
 }
 
 export type MessageKey = keyof typeof en
@@ -147,7 +153,6 @@ export const vi: Record<MessageKey, string> = {
   noFolder: 'Không',
 
   trash: 'Thùng rác (Telegram)',
-  used: 'Đã dùng',
 
   dropHint: 'Kéo thả hoặc chọn file — mọi định dạng, tối đa 2 GB/file (giới hạn Telegram).',
   uploading: 'Đang tải lên…',
@@ -202,6 +207,13 @@ export const vi: Record<MessageKey, string> = {
   selectedCount: 'Đã chọn {n}',
   deleteSelected: 'Xóa đã chọn',
   downloadSelected: 'Tải đã chọn',
+
+  downloadAll: 'Tải tất cả',
+  downloadAllConfirm:
+    'Tải xuống tất cả {n} file? Từng file tải lần lượt để trang không bị treo.',
+  downloadAllQueue: 'Tất cả file ({current}/{total})',
+  loadMoreFiles: 'Xem thêm',
+  listPartial: 'Hiển thị {shown} / {total} file. Bấm “Xem thêm” hoặc tìm kiếm để thu hẹp.',
 }
 
 /** Chỉ en + vi; thiếu key fallback en. */
