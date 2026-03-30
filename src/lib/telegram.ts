@@ -71,8 +71,7 @@ function tryTagBrowserFileForGramjs(file: File): boolean {
   }
 }
 
-const LIST_LIMIT = 500
-
+/** Session chỉ lưu cục bộ (IndexedDB). Không gửi log hay commit chuỗi session lên repo. */
 async function fetchStorageChatOptions(client: TelegramClient): Promise<StorageChatOption[]> {
   const dialogs = await client.getDialogs({ limit: 150 })
   const out: StorageChatOption[] = [
@@ -143,6 +142,12 @@ async function getStoredSession(): Promise<string | null> {
 
 async function storeSession(session: string) {
   await localforage.setItem(SESSION_KEY, session)
+}
+
+/** Tránh trùng tên khi trình duyệt tải nhiều file vào cùng thư mục. */
+export function downloadFilenameForMessage(msgId: number, originalName: string): string {
+  const base = originalName.replace(/[/\\?*:|"<>]/g, '_').trim() || 'file'
+  return `${msgId}_${base}`
 }
 
 async function clearSession() {
@@ -450,8 +455,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
     if (!client) return []
     const result: TelegramFileMessage[] = []
 
+    // limit: undefined = lấy toàn bộ lịch sử (GramJS tự phân trang). Chỉ document để khớp file đã gửi dạng tài liệu và giảm dữ liệu khi chat có rất nhiều tin nhắn chữ.
     const it = client.iterMessages(peer, {
-      limit: LIST_LIMIT,
+      limit: undefined,
+      filter: new Api.InputMessagesFilterDocument(),
     })
 
     for await (const message of it) {
@@ -473,6 +480,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         date,
         mimeType,
       })
+
+      if (result.length % 1500 === 0) {
+        await new Promise((r) => setTimeout(r, 0))
+      }
     }
 
     return result

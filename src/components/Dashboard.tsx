@@ -26,6 +26,7 @@ import {
 import { useI18n } from '../i18n/I18nContext'
 import type { StorageChatOption, TelegramFileMessage } from '../lib/telegram'
 import {
+  downloadFilenameForMessage,
   formatTelegramError,
   MAX_UPLOAD_BYTES,
   useTelegram,
@@ -50,6 +51,9 @@ type TransferRow = {
   total: number
   status: 'queued' | 'active' | 'done' | 'error'
 }
+
+const INITIAL_FILE_RENDER = 8000
+const FILE_RENDER_STEP = 8000
 
 const THEME_KEY = 'teledrive_theme'
 type ThemeMode = 'system' | 'light' | 'dark'
@@ -136,6 +140,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const [maxSizeMb, setMaxSizeMb] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
   const [transferRows, setTransferRows] = useState<TransferRow[]>([])
+  const [fileRenderLimit, setFileRenderLimit] = useState(INITIAL_FILE_RENDER)
+  const [downloadAllBusy, setDownloadAllBusy] = useState(false)
 
   const scheduleRemoveTransfer = useCallback((id: string, delayMs = 4500) => {
     window.setTimeout(() => {
@@ -198,6 +204,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
   useEffect(() => {
     setSelectedIds(new Set())
   }, [storagePeer])
+
+  useEffect(() => {
+    setFileRenderLimit(INITIAL_FILE_RENDER)
+  }, [storagePeer, search, smartType, dateFrom, dateTo, maxSizeMb])
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -318,6 +328,107 @@ export function Dashboard({ onLogout }: DashboardProps) {
     }
   }
 
+  const handleDownloadAll = async () => {
+    const list = files
+    if (list.length === 0) return
+    if (
+      !window.confirm(
+        t('downloadAllConfirm', {
+          n: String(list.length),
+        }),
+      )
+    ) {
+      return
+    }
+    const queueId = crypto.randomUUID()
+    const totalBytes = list.reduce((s, f) => s + f.size, 0)
+    setDownloadAllBusy(true)
+    setTransferRows((prev) => [
+      ...prev,
+      {
+        id: queueId,
+        direction: 'down',
+        name: t('downloadAllQueue', { current: '0', total: String(list.length) }),
+        loaded: 0,
+        total: Math.max(totalBytes, 1),
+        status: 'active',
+      },
+    ])
+    let accumulated = 0
+    try {
+      for (let idx = 0; idx < list.length; idx++) {
+        const file = list[idx]
+        const i = idx + 1
+        setTransferRows((prev) =>
+          prev.map((r) =>
+            r.id === queueId
+              ? {
+                  ...r,
+                  name: t('downloadAllQueue', {
+                    current: String(i),
+                    total: String(list.length),
+                  }),
+                }
+              : r,
+          ),
+        )
+        try {
+          const blob = await downloadFile(file.id, {
+            fileSize: file.size,
+            onProgress: (loaded, tot) => {
+              const cap = tot > 0 ? tot : file.size
+              const cur = Math.min(loaded, cap)
+              setTransferRows((prev) =>
+                prev.map((r) =>
+                  r.id === queueId
+                    ? {
+                        ...r,
+                        loaded: accumulated + cur,
+                        total: Math.max(totalBytes, 1),
+                      }
+                    : r,
+                ),
+              )
+            },
+          })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = downloadFilenameForMessage(file.id, file.name)
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          URL.revokeObjectURL(url)
+          accumulated += file.size > 0 ? file.size : blob.size
+          setTransferRows((prev) =>
+            prev.map((r) =>
+              r.id === queueId
+                ? { ...r, loaded: accumulated, total: Math.max(totalBytes, 1) }
+                : r,
+            ),
+          )
+        } catch (e) {
+          alert(formatTelegramError(e))
+          setTransferRows((prev) =>
+            prev.map((r) => (r.id === queueId ? { ...r, status: 'error' as const } : r)),
+          )
+          return
+        }
+        await new Promise((r) => setTimeout(r, 280))
+      }
+      setTransferRows((prev) =>
+        prev.map((r) =>
+          r.id === queueId
+            ? { ...r, status: 'done' as const, loaded: Math.max(totalBytes, 1) }
+            : r,
+        ),
+      )
+      scheduleRemoveTransfer(queueId)
+    } finally {
+      setDownloadAllBusy(false)
+    }
+  }
+
   const handleDelete = async (file: TelegramFileMessage) => {
     if (!window.confirm(t('deleteConfirm', { name: file.name }))) return
     await deleteFile(file.id)
@@ -381,7 +492,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = file.name
+        a.download = downloadFilenameForMessage(file.id, file.name)
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -482,11 +593,14 @@ export function Dashboard({ onLogout }: DashboardProps) {
     return list
   }, [files, search, smartType, dateFrom, dateTo, maxSizeMb])
 
+  const displayedFiles = useMemo(
+    () => filteredFiles.slice(0, fileRenderLimit),
+    [filteredFiles, fileRenderLimit],
+  )
+
   const selectAllFiltered = useCallback(() => {
     setSelectedIds(new Set(filteredFiles.map((f) => f.id)))
   }, [filteredFiles])
-
-  const totalSize = useMemo(() => files.reduce((sum, f) => sum + f.size, 0), [files])
 
   const onDrop: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault()
@@ -613,10 +727,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
               ))}
             </select>
           </div>
-          <div className="flex items-center justify-between text-slate-500">
-            <span>{t('used')}</span>
-            <span>{formatBytes(totalSize)}</span>
-          </div>
           <button
             type="button"
             onClick={onLogout}
@@ -667,6 +777,19 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 </button>
               </>
             )}
+            <button
+              type="button"
+              disabled={loading || files.length === 0 || downloadAllBusy}
+              onClick={() => void handleDownloadAll()}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              {downloadAllBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ArrowDownToLine className="h-3.5 w-3.5" />
+              )}
+              {t('downloadAll')}
+            </button>
             <button
               type="button"
               onClick={() => void refresh()}
@@ -788,7 +911,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
         >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span>{t('dropHint')}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {filteredFiles.length > displayedFiles.length && (
+                <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                  {t('listPartial', {
+                    shown: String(displayedFiles.length),
+                    total: String(filteredFiles.length),
+                  })}
+                </span>
+              )}
               {filteredFiles.length > 0 && (
                 <button
                   type="button"
@@ -796,6 +927,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
                 >
                   {t('selectAll')}
+                </button>
+              )}
+              {filteredFiles.length > fileRenderLimit && (
+                <button
+                  type="button"
+                  onClick={() => setFileRenderLimit((n) => n + FILE_RENDER_STEP)}
+                  className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  {t('loadMoreFiles')}
                 </button>
               )}
               {uploading && transferRows.length === 0 && (
@@ -911,7 +1051,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
           {viewMode === 'grid' && filteredFiles.length > 0 && (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-              {filteredFiles.map((file) => (
+              {displayedFiles.map((file) => (
                 <div
                   key={file.id}
                   className="group relative rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-sm hover:border-blue-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
@@ -958,7 +1098,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 <span>{t('dateCol')}</span>
                 <span />
               </div>
-              {filteredFiles.map((file) => (
+              {displayedFiles.map((file) => (
                 <div
                   key={file.id}
                   className="grid grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-center border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900/60"
