@@ -105,6 +105,9 @@ export const en = {
   downloadAllQueue: 'All files ({current}/{total})',
   loadMoreFiles: 'Load more',
   listPartial: 'Showing {shown} of {total}. Load more or narrow search.',
+
+  apiRateLimited: 'Telegram API rate limit reached',
+  apiAutoRetry: 'Auto-retry in {seconds}s. Thumbnails keep loading when ready.',
 }
 
 export type MessageKey = keyof typeof en
@@ -214,6 +217,9 @@ export const vi: Record<MessageKey, string> = {
   downloadAllQueue: 'Tất cả file ({current}/{total})',
   loadMoreFiles: 'Xem thêm',
   listPartial: 'Hiển thị {shown} / {total} file. Bấm “Xem thêm” hoặc tìm kiếm để thu hẹp.',
+
+  apiRateLimited: 'Đạt giới hạn Telegram API',
+  apiAutoRetry: 'Tự thử lại sau {seconds}s. Thumbnail sẽ tiếp tục tải khi sẵn sàng.',
 }
 
 /** Chỉ en + vi; thiếu key fallback en. */

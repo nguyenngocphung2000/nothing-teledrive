@@ -15,6 +15,8 @@ import { CustomFile } from 'telegram/client/uploads'
 import localforage from 'localforage'
 import type { TelegramClient } from 'telegram'
 import { isSessionInvalidError, sleep } from './sessionErrors'
+import { getThumbFromCache, pruneThumbCache, putThumbToCache } from './thumbCache'
+import { enqueueThumbTask, parseFloodWaitMs, pauseThumbQueueFor } from './thumbQueue'
 
 export type TelegramFileMessage = {
   id: number
@@ -130,6 +132,7 @@ type TelegramContextValue = {
     msgId: number,
     options?: { onProgress?: FileTransferProgress; fileSize?: number },
   ) => Promise<Blob>
+  downloadThumbnail: (msgId: number) => Promise<Blob | null>
   deleteFile: (msgId: number) => Promise<void>
   forwardFile: (msgId: number, peer: string) => Promise<void>
 }
@@ -572,6 +575,60 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
     [client, peer],
   )
 
+  const downloadThumbnail = useCallback(
+    async (msgId: number): Promise<Blob | null> => {
+      if (!client) throw new Error('Client not ready')
+
+      // Best-effort cache hygiene (about once per session switch / reload).
+      // 14 days TTL keeps the DB small while still useful.
+      void pruneThumbCache(14 * 24 * 60 * 60 * 1000).catch(() => {})
+
+      const cached = await getThumbFromCache(peer, msgId)
+      if (cached) return cached
+
+      return enqueueThumbTask(async () => {
+        // Cache might have been filled while waiting in queue.
+        const cached2 = await getThumbFromCache(peer, msgId)
+        if (cached2) return cached2
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const msgs = await client.getMessages(peer, { ids: msgId })
+            const msg = msgs[0]
+            if (!msg) return null
+
+            const buffer = await client.downloadMedia(msg, {
+              // Smallest thumbnail (equivalent to sizeType 's')
+              thumb: 0,
+            })
+
+            if (buffer == null) return null
+
+            const bytes =
+              typeof buffer === 'string'
+                ? new TextEncoder().encode(buffer)
+                : new Uint8Array(buffer)
+            const blob = new Blob([bytes])
+            await putThumbToCache(peer, msgId, blob)
+            return blob
+          } catch (e) {
+            const fw = parseFloodWaitMs(e)
+            if (fw) {
+              // Pause all thumb tasks immediately, then auto-retry.
+              pauseThumbQueueFor(fw.waitMs, fw.reason)
+              await sleep(Math.min(fw.waitMs + 250, 25_000))
+              continue
+            }
+            throw e
+          }
+        }
+
+        return null
+      })
+    },
+    [client, peer],
+  )
+
   const deleteFile = useCallback(
     async (msgId: number) => {
       if (!client) throw new Error('Client not ready')
@@ -605,6 +662,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       listFiles,
       uploadFile,
       downloadFile,
+      downloadThumbnail,
       deleteFile,
       forwardFile,
     }),
@@ -621,6 +679,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       listFiles,
       uploadFile,
       downloadFile,
+      downloadThumbnail,
       deleteFile,
       forwardFile,
     ],
