@@ -9,37 +9,55 @@ export function TelegramImageThumb({
   className?: string
 }) {
   const { downloadThumbnail } = useTelegram()
-  const [blob, setBlob] = useState<Blob | null>(null)
+  const [blobS, setBlobS] = useState<Blob | null>(null)
+  const [blobM, setBlobM] = useState<Blob | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    setBlob(null)
+    setBlobS(null)
+    setBlobM(null)
+    
     void (async () => {
       try {
-        const b = await downloadThumbnail(msgId)
-        if (!cancelled) setBlob(b)
+        const bS = await downloadThumbnail(msgId, 's')
+        if (!cancelled && bS) setBlobS(bS)
       } catch {
-        if (!cancelled) setBlob(null)
+        // ignore
+      }
+
+      try {
+        const bM = await downloadThumbnail(msgId, 'm')
+        if (!cancelled && bM) setBlobM(bM)
+      } catch {
+        // ignore 
       } finally {
         if (!cancelled) setLoading(false)
       }
     })()
+
     return () => {
       cancelled = true
     }
   }, [downloadThumbnail, msgId])
 
-  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
+  const urlS = useMemo(() => (blobS ? URL.createObjectURL(blobS) : null), [blobS])
+  const urlM = useMemo(() => (blobM ? URL.createObjectURL(blobM) : null), [blobM])
 
   useEffect(() => {
     return () => {
-      if (url) URL.revokeObjectURL(url)
+      if (urlS) URL.revokeObjectURL(urlS)
     }
-  }, [url])
+  }, [urlS])
 
-  if (!url) {
+  useEffect(() => {
+    return () => {
+      if (urlM) URL.revokeObjectURL(urlM)
+    }
+  }, [urlM])
+
+  if (!urlS && !urlM) {
     return (
       <div
         className={
@@ -51,18 +69,25 @@ export function TelegramImageThumb({
     )
   }
 
+  const currentUrl = urlM || urlS
+  const isHighRes = !!urlM
+
   return (
     <img
-      src={url}
+      src={currentUrl!}
       alt=""
       className={
         className ??
-        'h-full w-full rounded-lg object-cover bg-slate-100 dark:bg-slate-800/70'
+        'h-full w-full rounded-lg bg-slate-100 dark:bg-slate-800/70 transition-[filter] duration-700 ease-in-out'
       }
+      style={{
+        objectFit: 'cover',
+        imageRendering: (isHighRes ? 'high-quality' : 'auto') as any,
+        filter: isHighRes ? 'blur(0px)' : 'blur(5px)',
+      }}
       loading="eager"
       decoding="async"
       draggable={false}
     />
   )
 }
-

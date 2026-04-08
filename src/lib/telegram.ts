@@ -132,7 +132,7 @@ type TelegramContextValue = {
     msgId: number,
     options?: { onProgress?: FileTransferProgress; fileSize?: number },
   ) => Promise<Blob>
-  downloadThumbnail: (msgId: number) => Promise<Blob | null>
+  downloadThumbnail: (msgId: number, size: 's' | 'm') => Promise<Blob | null>
   deleteFile: (msgId: number) => Promise<void>
   forwardFile: (msgId: number, peer: string) => Promise<void>
 }
@@ -576,19 +576,19 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   )
 
   const downloadThumbnail = useCallback(
-    async (msgId: number): Promise<Blob | null> => {
+    async (msgId: number, size: 's' | 'm'): Promise<Blob | null> => {
       if (!client) throw new Error('Client not ready')
 
       // Best-effort cache hygiene (about once per session switch / reload).
       // 14 days TTL keeps the DB small while still useful.
       void pruneThumbCache(14 * 24 * 60 * 60 * 1000).catch(() => {})
 
-      const cached = await getThumbFromCache(peer, msgId)
+      const cached = await getThumbFromCache(peer, msgId, size)
       if (cached) return cached
 
       return enqueueThumbTask(async () => {
         // Cache might have been filled while waiting in queue.
-        const cached2 = await getThumbFromCache(peer, msgId)
+        const cached2 = await getThumbFromCache(peer, msgId, size)
         if (cached2) return cached2
 
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -597,9 +597,9 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
             const msg = msgs[0]
             if (!msg) return null
 
+            const thumbParam = size === 'm' ? 'm' : 0;
             const buffer = await client.downloadMedia(msg, {
-              // Smallest thumbnail (equivalent to sizeType 's')
-              thumb: 0,
+              thumb: thumbParam as any,
             })
 
             if (buffer == null) return null
@@ -609,7 +609,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
                 ? new TextEncoder().encode(buffer)
                 : new Uint8Array(buffer)
             const blob = new Blob([bytes])
-            await putThumbToCache(peer, msgId, blob)
+            await putThumbToCache(peer, msgId, size, blob)
             return blob
           } catch (e) {
             const fw = parseFloodWaitMs(e)

@@ -1,7 +1,7 @@
 import { AsyncQueue, type QueueEvent } from './asyncQueue'
 
-// Telegram hard limit is ~30 req/s; we stay well under (15–20).
-const DEFAULT_MAX_RPS = 18
+// Telegram hard limit is ~30 req/s; we stay well under 15 for safety.
+const DEFAULT_MAX_RPS = 15
 
 // Single shared queue across the frontend.
 const q = new AsyncQueue(DEFAULT_MAX_RPS)

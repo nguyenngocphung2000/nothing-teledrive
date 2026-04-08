@@ -12,20 +12,20 @@ const STORE = localforage.createInstance({
   description: 'Telegram thumbnail blobs (smallest size)',
 })
 
-function keyFor(peerKey: string, msgId: number): string {
-  return `${peerKey}:${msgId}`
+function keyFor(peerKey: string, msgId: number, size: 's' | 'm'): string {
+  return `${peerKey}:${msgId}:${size}`
 }
 
-export async function getThumbFromCache(peerKey: string, msgId: number): Promise<Blob | null> {
-  const raw = await STORE.getItem<CacheEntry>(keyFor(peerKey, msgId))
+export async function getThumbFromCache(peerKey: string, msgId: number, size: 's' | 'm'): Promise<Blob | null> {
+  const raw = await STORE.getItem<CacheEntry>(keyFor(peerKey, msgId, size))
   if (!raw || raw.v !== 1) return null
   if (!(raw.blob instanceof Blob)) return null
   return raw.blob
 }
 
-export async function putThumbToCache(peerKey: string, msgId: number, blob: Blob): Promise<void> {
+export async function putThumbToCache(peerKey: string, msgId: number, size: 's' | 'm', blob: Blob): Promise<void> {
   const entry: CacheEntry = { v: 1, storedAt: Date.now(), blob }
-  await STORE.setItem(keyFor(peerKey, msgId), entry)
+  await STORE.setItem(keyFor(peerKey, msgId, size), entry)
 }
 
 /**

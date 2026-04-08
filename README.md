@@ -1,76 +1,63 @@
-# TeleDrive (Telegram Cloud Storage)
+<div align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Teledrive Logo" width="120" />
+  <h1>Nothing Teledrive</h1>
+  <p><b>Transform your Telegram Saved Messages and Chats into an Infinite, High-Performance Cloud Drive.</b></p>
+</div>
 
-TeleDrive là web cho phép bạn lưu và quản lý file trên Telegram (dưới dạng `document`) bằng cách:
-- Upload nhiều file lên Telegram (lưu vào `Saved Messages` hoặc một nhóm/kênh bạn chọn)
-- Xem danh sách file đã lưu theo bộ lọc (tên/loại/ngày/kích thước)
-- Tải xuống từng file hoặc tải xuống tất cả file
-- Xóa file khỏi Telegram
+<br/>
 
-## Công nghệ
-- React + TypeScript
-- Vite
-- Telegram client (GramJS)
+**Nothing Teledrive** is a frontend-only React + Vite project that leverages Telegram's MTProto API (via GramJS) to turn any Telegram chat into a file storage system. Built with performance and elegance in mind.
 
-## Yêu cầu
-1. Có Telegram API credentials:
-   - `VITE_TELEGRAM_API_ID`
-   - `VITE_TELEGRAM_API_HASH`
-2. Trình duyệt chạy được app web (session được lưu cục bộ trên trình duyệt).
+## ✨ Key Features
 
-## Cài đặt
-1. Cài dependencies:
+- **Infinite Free Cloud Storage**: Utilize Telegram's unlimited server storage to store files up to 2GB each.
+- **Progressive Blur-up Images**: Previews load instantly using an ultra-low resolution placeholder (Skeleton/Blurred) cached in IndexedDB, progressively transitioning to High-Resolution thumbnails to provide a buttery-smooth user experience.
+- **Throttled Promise API Queue**: Robustly manages aggressive rate limits (15 requests/sec max) and intelligently implements Fault Tolerance by capturing `429 Too Many Requests` or `FLOOD_WAIT` events to pause API pipelines transparently.
+- **Virtual Scrolling**: Optimized memory footprint. Efficiently destroys and rebuilds DOM bindings as thumbnails enter/leave the viewport. Prevents browser crashes specifically through automated Garbage Collection using strict `URL.revokeObjectURL()` lifecycles for Blob URLs.
+- **Local Caching First**: Persists frequently accessed metadata and thumbnails intelligently into local browser chunks via `localforage` (IndexedDB).
+- **Client-Side Heavy, Zero-Server Validation**: No centralized database intercepting data. All API calls traverse directly between your browser and Telegram Servers.
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+- Node.js (v20+ recommended)
+- Your Telegram Account API credentials:
+  1. Login to your Telegram core account: https://my.telegram.org.
+  2. Navigate to **API development tools** and create a new application.
+  3. Note down the **`App api_id`** and **`App api_hash`**.
+
+### 2. Installation
+Clone the repository and install dependencies:
+
 ```bash
+git clone https://github.com/nguyenngocphung2000/nothing-teledrive.git
+cd nothing-teledrive
 npm install
 ```
 
-2. Tạo file `.env` ở thư mục gốc dự án (không commit lên repo):
-```bash
-VITE_TELEGRAM_API_ID=123456
+### 3. Environment Variables
+Create a `.env` file at the root level and inject your keys:
+```env
+VITE_TELEGRAM_API_ID=your_api_id
 VITE_TELEGRAM_API_HASH=your_api_hash
 ```
 
-## Chạy web
+### 4. Running Locally
+Spin up the Vite development server:
 ```bash
 npm run dev
 ```
-Mở URL do Vite cung cấp.
 
-## Build
-```bash
-npm run build
-```
+Visit the designated local port index (typically `http://localhost:5173`).
 
-## Hướng dẫn sử dụng
-### 1) Đăng nhập Telegram
-- Lần đầu mở web sẽ hiển thị QR code để đăng nhập.
-- Dùng Telegram Desktop để quét QR, hoặc nhập 2FA nếu tài khoản có bật.
-- Session đăng nhập được lưu cục bộ trong trình duyệt (IndexedDB) để lần sau không phải đăng nhập lại.
+## 🛠️ Tech Stack & Architecture
 
-### 2) Chọn nơi lưu file
-- Ở sidebar, chọn `Save files to`:
-  - `Saved Messages` (lưu trong tin nhắn đã lưu của chính bạn), hoặc
-  - Một nhóm/kênh mà bạn có quyền gửi file.
+- **Core**: React 19, TypeScript
+- **Bundler**: Vite
+- **Telegram Backend Integration**: [GramJS](https://gram.js.org/) (MTProto Implementation)
+- **Styling**: Tailwind CSS, Vanilla CSS
+- **Local Storage Manager**: localforage
+- **Icons**: Lucide React
 
-### 3) Upload file
-- Bấm `Upload` hoặc kéo-thả file vào vùng danh sách.
-- Mỗi file bị giới hạn bởi Telegram: tối đa `2 GB`.
-
-### 4) Tìm kiếm / lọc
-- `Search by name…`: lọc theo tên file.
-- `Type`: lọc theo phân loại dựa trên tên/mime.
-- `From/To`: lọc theo ngày metadata Telegram.
-- `Max size (MB)`: lọc theo kích thước.
-
-### 5) Tải xuống
-- Mỗi file: chọn menu ngữ cảnh → `Download`.
-- `Tải tất cả`: tải tuần tự để giữ trang ổn định mượt mà khi danh sách rất lớn.
-
-### 6) Xóa file
-- Xóa từng file bằng `Delete`.
-- Xóa nhiều file đã chọn bằng `Delete selected`.
-
-## Lưu ý bảo mật Telegram
-- App dùng session để truy cập Telegram ngay trong trình duyệt; không gửi/đẩy session đi nơi khác.
-- Không chia sẻ file `.env` (chứa `API_ID`/`API_HASH`).
-- Không đưa thông tin session/credential lên nơi công khai.
-
+## ⚖️ License
+[MIT License](LICENSE)
