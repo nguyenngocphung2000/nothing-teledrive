@@ -39,12 +39,14 @@ import {
 import { subscribeThumbQueue } from '../lib/thumbQueue'
 import { TelegramImageThumb } from './TelegramImageThumb'
 import { VirtualGrid, VirtualList } from './Virtual'
+import { FileLeecher } from './FileLeecher'
 
 type DashboardProps = {
   onLogout: () => void
 }
 
 type ViewMode = 'grid' | 'list'
+type MainView = 'files' | 'leecher'
 
 type TransferRow = {
   id: string
@@ -129,6 +131,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [mainView, setMainView] = useState<MainView>('files')
   const [contextFile, setContextFile] = useState<TelegramFileMessage | null>(null)
   const [forwardPeer, setForwardPeer] = useState('')
   const [storageOptions, setStorageOptions] = useState<StorageChatOption[]>([])
@@ -759,41 +762,48 @@ export function Dashboard({ onLogout }: DashboardProps) {
           <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
             <span className="font-medium text-slate-800 dark:text-slate-100">{storageTitle}</span>
             <span className="mx-1">/</span>
-            <span>{t('breadcrumbFiles')}</span>
+            <span>{mainView === 'files' ? t('breadcrumbFiles') : 'File Leecher'}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {selectedIds.size > 0 && (
-              <>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {t('selectedCount', { n: String(selectedIds.size) })}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleBulkDownload()}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  {t('downloadSelected')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleBulkDelete()}
-                  disabled={uploading}
-                  className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900/40"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {t('deleteSelected')}
-                </button>
-                <button
-                  type="button"
-                  onClick={clearFileSelection}
-                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                >
-                  {t('clearSelection')}
-                </button>
-              </>
-            )}
             <button
+              type="button"
+              onClick={() => setMainView(mainView === 'files' ? 'leecher' : 'files')}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              {mainView === 'files' ? 'File Leecher' : 'Files'}
+            </button>
+                {selectedIds.size > 0 && (
+                  <>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {t('selectedCount', { n: String(selectedIds.size) })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleBulkDownload()}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {t('downloadSelected')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleBulkDelete()}
+                      disabled={uploading}
+                      className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900/40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t('deleteSelected')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearFileSelection}
+                      className="rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      {t('clearSelection')}
+                    </button>
+                  </>
+                )}
+                <button
               type="button"
               disabled={loading || files.length === 0 || downloadAllBusy}
               onClick={() => void handleDownloadAll()}
@@ -845,9 +855,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
           </div>
         </header>
 
-        <div className="border-b border-slate-200 bg-slate-50/90 px-4 py-1.5 dark:border-slate-800 dark:bg-slate-900/40">
-          <p className="text-center text-[10px] text-slate-400 dark:text-slate-500">{t('author')}</p>
-        </div>
+        {mainView === 'files' ? (
+          <>
+            <div className="border-b border-slate-200 bg-slate-50/90 px-4 py-1.5 dark:border-slate-800 dark:bg-slate-900/40">
+              <p className="text-center text-[10px] text-slate-400 dark:text-slate-500">{t('author')}</p>
+            </div>
 
         <div className="border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900/80">
           <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end">
@@ -1222,6 +1234,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
               </div>
             </div>
           </div>
+        )}
+        </>
+        ) : (
+          <FileLeecher />
         )}
       </main>
     </div>

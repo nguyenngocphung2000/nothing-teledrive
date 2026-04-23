@@ -108,6 +108,19 @@ export const en = {
 
   apiRateLimited: 'Telegram API rate limit reached',
   apiAutoRetry: 'Auto-retry in {seconds}s. Thumbnails keep loading when ready.',
+
+  // File Leecher
+  fileLeecher: 'File Leecher',
+  selectSource: 'Select Source',
+  loadFiles: 'Load Files',
+  selectFiles: 'Select Files',
+  selectDestination: 'Select Destination',
+  startTransfer: 'Start Transfer',
+  downloading: 'Downloading...',
+  uploading: 'Uploading...',
+  completed: 'Completed',
+  transferError: 'Error',
+  restricted: 'Restricted',
 }
 
 export type MessageKey = keyof typeof en
@@ -220,6 +233,19 @@ export const vi: Record<MessageKey, string> = {
 
   apiRateLimited: 'Đạt giới hạn Telegram API',
   apiAutoRetry: 'Tự thử lại sau {seconds}s. Thumbnail sẽ tiếp tục tải khi sẵn sàng.',
+
+  // File Leecher
+  fileLeecher: 'File Leecher',
+  selectSource: 'Chọn Nguồn',
+  loadFiles: 'Tải File',
+  selectFiles: 'Chọn File',
+  selectDestination: 'Chọn Đích',
+  startTransfer: 'Bắt Đầu Chuyển',
+  downloading: 'Đang Tải Xuống...',
+  uploading: 'Đang Tải Lên...',
+  completed: 'Hoàn Thành',
+  transferError: 'Lỗi',
+  restricted: 'Bị Hạn Chế',
 }
 
 /** Chỉ en + vi; thiếu key fallback en. */
