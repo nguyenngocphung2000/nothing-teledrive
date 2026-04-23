@@ -1,8 +1,8 @@
+import { useCallback, useEffect, useState } from 'react'
 import { Api } from 'telegram'
 import {
   ArrowRight,
   CheckCircle2,
-  Download,
   FileText,
   FolderOpen,
   Loader2,
@@ -39,7 +39,6 @@ type TransferItem = {
 
 export function FileLeecher() {
   const { t } = useI18n()
-  const { t } = useI18n()
   const { client } = useTelegram()
 
   const [step, setStep] = useState<'source' | 'files' | 'destination' | 'transfer'>('source')
@@ -54,18 +53,21 @@ export function FileLeecher() {
 
   // Step 1: Load source chats (groups/channels)
   useEffect(() => {
-    if (step !== 'source') return
+    if (step !== 'source' || !client) return
     setLoading(true)
     void (async () => {
       try {
         const dialogs = await client.getDialogs({ limit: 150 })
-        const chats: StorageChatOption[] = dialogs
-          .filter((d) => d.isGroup || d.isChannel)
-          .map((d) => ({
-            peerKey: d.id.toString(),
-            title: d.title || 'Unknown',
-            kind: d.isGroup ? 'group' : 'channel',
-          }))
+        const chats: StorageChatOption[] = dialogs.flatMap((d) => {
+          if (d.id == null || !(d.isGroup || d.isChannel)) return []
+          return [
+            {
+              peerKey: d.id.toString(),
+              title: d.title || 'Unknown',
+              kind: d.isGroup ? 'group' : 'channel',
+            },
+          ]
+        })
         setSourceChats(chats)
       } catch (e) {
         console.error(e)
@@ -78,7 +80,7 @@ export function FileLeecher() {
 
   // Step 2: Load files from selected source
   const loadFiles = useCallback(async () => {
-    if (!selectedSource) return
+    if (!selectedSource || !client) return
     setLoading(true)
     try {
       const peerId = selectedSource === 'me' ? 'me' : Number(selectedSource)
@@ -91,7 +93,7 @@ export function FileLeecher() {
         .map((m) => ({
           id: m.id,
           name: m.document?.attributes?.find((a) => a.className === 'DocumentAttributeFilename')?.fileName || 'Unknown',
-          size: m.document?.size || 0,
+          size: Number(m.document?.size ?? 0),
           date: new Date(m.date * 1000),
           mimeType: m.document?.mimeType,
           noforwards: m.noforwards || false,
@@ -108,18 +110,30 @@ export function FileLeecher() {
 
   // Step 3: Load destination chats
   useEffect(() => {
-    if (step !== 'destination') return
+    if (step !== 'destination' || !client) return
     setLoading(true)
     void (async () => {
       try {
         const dialogs = await client.getDialogs({ limit: 150 })
-        const chats: StorageChatOption[] = dialogs
-          .filter((d) => !d.isGroup && !d.isChannel || d.id.toString() === 'me')
-          .map((d) => ({
-            peerKey: d.id.toString(),
-            title: d.title || 'Saved Messages',
-            kind: d.id.toString() === 'me' ? 'saved' : d.isChannel ? 'channel' : 'private',
-          }))
+        const chats: StorageChatOption[] = dialogs.flatMap((d) => {
+          if (d.id == null) return []
+          const peerKey = d.id.toString()
+          const kind: StorageChatOption['kind'] =
+            peerKey === 'me'
+              ? 'saved'
+              : d.isGroup
+              ? 'group'
+              : d.isChannel
+              ? 'channel'
+              : 'private'
+          return [
+            {
+              peerKey,
+              title: peerKey === 'me' ? 'Saved Messages' : d.title || d.name || 'Unknown',
+              kind,
+            },
+          ]
+        }).filter((chat) => chat.peerKey !== selectedSource)
         setDestinationChats(chats)
       } catch (e) {
         console.error(e)
@@ -128,11 +142,11 @@ export function FileLeecher() {
         setLoading(false)
       }
     })()
-  }, [step, client])
+  }, [step, client, selectedSource])
 
   // Transfer logic
   const startTransfer = useCallback(async () => {
-    if (selectedFiles.size === 0 || !selectedDestination) return
+    if (!client || selectedFiles.size === 0 || !selectedDestination) return
     setStep('transfer')
     const transferItems: TransferItem[] = Array.from(selectedFiles).map((msgId) => ({
       id: crypto.randomUUID(),
@@ -177,7 +191,9 @@ export function FileLeecher() {
           // Bypass: download and re-upload
           const message = (await client.getMessages(peerId, { ids: file.id }))[0]
           const buffer = await client.downloadMedia(message, {
-            progressCallback: (downloaded, total) => {
+            progressCallback: (...args: any[]) => {
+              const downloaded = Number(args[0] ?? 0)
+              const total = Number(args[1] ?? 0)
               const progress = total > 0 ? (downloaded / total) * 50 : 0
               setTransfers((prev) =>
                 prev.map((t) =>
@@ -186,6 +202,7 @@ export function FileLeecher() {
               )
             },
           })
+          if (!buffer) throw new Error('Failed to download media')
 
           setTransfers((prev) =>
             prev.map((t) =>
@@ -194,13 +211,15 @@ export function FileLeecher() {
           )
 
           // Create blob and upload
-          const blob = new Blob([buffer])
+          const blob = new Blob([buffer as BlobPart])
           const fileObj = new File([blob], file.name, { type: file.mimeType || 'application/octet-stream' })
 
           await client.sendFile(destPeerId, {
             file: fileObj,
             forceDocument: true,
-            progressCallback: (uploaded, total) => {
+            progressCallback: (...args: any[]) => {
+              const uploaded = Number(args[0] ?? 0)
+              const total = Number(args[1] ?? 0)
               const progress = 50 + (total > 0 ? (uploaded / total) * 50 : 0)
               setTransfers((prev) =>
                 prev.map((t) =>
@@ -209,9 +228,6 @@ export function FileLeecher() {
               )
             },
           })
-
-          // Clean up
-          URL.revokeObjectURL(URL.createObjectURL(blob))
 
           setTransfers((prev) =>
             prev.map((t) =>

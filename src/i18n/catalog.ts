@@ -9,6 +9,7 @@ export const en = {
   loginTitle: 'Telegram Cloud Storage',
   loginSubtitle: 'Nothing',
   loginGenerating: 'Creating QR code…',
+  loginRetry: 'Retry login',
   loginSteps: 'Telegram → Settings → Devices → Link Desktop Device → scan the code.',
   loginFallback: 'Open link if scan fails',
 
@@ -117,7 +118,6 @@ export const en = {
   selectDestination: 'Select Destination',
   startTransfer: 'Start Transfer',
   downloading: 'Downloading...',
-  uploading: 'Uploading...',
   completed: 'Completed',
   transferError: 'Error',
   restricted: 'Restricted',
@@ -134,6 +134,7 @@ export const vi: Record<MessageKey, string> = {
   loginTitle: 'Telegram Cloud Storage',
   loginSubtitle: 'Nothing',
   loginGenerating: 'Đang tạo mã QR…',
+  loginRetry: 'Tải lại đăng nhập',
   loginSteps: 'Telegram → Cài đặt → Thiết bị → Liên kết thiết bị → quét mã.',
   loginFallback: 'Mở bằng link nếu quét không được',
 
@@ -242,7 +243,6 @@ export const vi: Record<MessageKey, string> = {
   selectDestination: 'Chọn Đích',
   startTransfer: 'Bắt Đầu Chuyển',
   downloading: 'Đang Tải Xuống...',
-  uploading: 'Đang Tải Lên...',
   completed: 'Hoàn Thành',
   transferError: 'Lỗi',
   restricted: 'Bị Hạn Chế',
