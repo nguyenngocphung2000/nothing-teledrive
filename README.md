@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./public/banner.png" alt="Teledrive Logo" width="120" />
+  <img src="public/banner.png" alt="Teledrive Logo" width="120" />
 
   <h1>Nothing Teledrive</h1>
   <p><b>Transform your Telegram Saved Messages and Chats into an Infinite, High-Performance Cloud Drive.</b></p>
