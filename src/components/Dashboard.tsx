@@ -39,14 +39,12 @@ import {
 import { subscribeThumbQueue } from '../lib/thumbQueue'
 import { TelegramImageThumb } from './TelegramImageThumb'
 import { VirtualGrid, VirtualList } from './Virtual'
-import { FileLeecher } from './FileLeecher'
 
 type DashboardProps = {
   onLogout: () => void
 }
 
 type ViewMode = 'grid' | 'list'
-type MainView = 'files' | 'leecher'
 
 type TransferRow = {
   id: string
@@ -131,9 +129,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [mainView, setMainView] = useState<MainView>('files')
   const [contextFile, setContextFile] = useState<TelegramFileMessage | null>(null)
   const [forwardPeer, setForwardPeer] = useState('')
+  const [destinationPeer, setDestinationPeer] = useState('')
   const [storageOptions, setStorageOptions] = useState<StorageChatOption[]>([])
   const [chatsLoading, setChatsLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -243,6 +241,41 @@ export function Dashboard({ onLogout }: DashboardProps) {
   }
 
   const clearFileSelection = () => setSelectedIds(new Set())
+
+  const destinationOptions = useMemo(
+    () => storageOptions.filter((o) => o.peerKey !== storagePeer),
+    [storageOptions, storagePeer],
+  )
+
+  useEffect(() => {
+    if (destinationPeer && destinationPeer === storagePeer) {
+      setDestinationPeer('')
+    }
+  }, [destinationPeer, storagePeer])
+
+  const handleForwardSelected = async () => {
+    if (selectedIds.size === 0) return
+    if (!destinationPeer.trim()) {
+      alert(t('enterPeer'))
+      return
+    }
+
+    setUploading(true)
+    try {
+      const filesToForward = files.filter((file) => selectedIds.has(file.id))
+      for (const file of filesToForward) {
+        await forwardFile(file.id, destinationPeer.trim())
+      }
+      alert(t('forwarded'))
+      clearFileSelection()
+      setDestinationPeer('')
+      await refresh()
+    } catch (e) {
+      alert(formatTelegramError(e))
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const onFilesSelected = async (fileList: FileList | null) => {
     if (!fileList?.length) return
@@ -762,47 +795,61 @@ export function Dashboard({ onLogout }: DashboardProps) {
           <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
             <span className="font-medium text-slate-800 dark:text-slate-100">{storageTitle}</span>
             <span className="mx-1">/</span>
-            <span>{mainView === 'files' ? t('breadcrumbFiles') : 'File Leecher'}</span>
+            <span>{t('breadcrumbFiles')}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMainView(mainView === 'files' ? 'leecher' : 'files')}
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-            >
-              {mainView === 'files' ? 'File Leecher' : 'Files'}
-            </button>
-                {selectedIds.size > 0 && (
-                  <>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {t('selectedCount', { n: String(selectedIds.size) })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void handleBulkDownload()}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {t('downloadSelected')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleBulkDelete()}
-                      disabled={uploading}
-                      className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900/40"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      {t('deleteSelected')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={clearFileSelection}
-                      className="rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                    >
-                      {t('clearSelection')}
-                    </button>
-                  </>
-                )}
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {t('selectedCount', { n: String(selectedIds.size) })}
+                </span>
+                <select
+                  value={destinationPeer}
+                  onChange={(e) => setDestinationPeer(e.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-950"
+                >
+                  <option value="">{t('selectDestination')}</option>
+                  {destinationOptions.map((o) => (
+                    <option key={o.peerKey} value={o.peerKey}>
+                      [{kindLabel(o.kind)}] {o.peerKey === 'me' ? t('savedMessages') : o.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => void handleForwardSelected()}
+                  disabled={!destinationPeer || uploading}
+                  className="inline-flex items-center gap-1 rounded-full bg-teal-500 px-3 py-1.5 text-xs text-white hover:bg-teal-600 disabled:opacity-50"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {t('transferSelected')}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearFileSelection}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  {t('clearSelection')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkDownload()}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t('downloadSelected')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkDelete()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900/40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t('deleteSelected')}
+                </button>
+              </>
+            )}
                 <button
               type="button"
               disabled={loading || files.length === 0 || downloadAllBusy}
@@ -855,8 +902,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
           </div>
         </header>
 
-        {mainView === 'files' ? (
-          <>
+        <>
             <div className="border-b border-slate-200 bg-slate-50/90 px-4 py-1.5 dark:border-slate-800 dark:bg-slate-900/40">
               <p className="text-center text-[10px] text-slate-400 dark:text-slate-500">{t('author')}</p>
             </div>
@@ -1236,9 +1282,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
           </div>
         )}
         </>
-        ) : (
-          <FileLeecher />
-        )}
       </main>
     </div>
   )

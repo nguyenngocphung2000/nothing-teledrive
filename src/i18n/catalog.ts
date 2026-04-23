@@ -99,6 +99,7 @@ export const en = {
   selectedCount: '{n} selected',
   deleteSelected: 'Delete selected',
   downloadSelected: 'Download selected',
+  transferSelected: 'Transfer selected',
 
   downloadAll: 'Download all',
   downloadAllConfirm:
@@ -224,6 +225,7 @@ export const vi: Record<MessageKey, string> = {
   selectedCount: 'Đã chọn {n}',
   deleteSelected: 'Xóa đã chọn',
   downloadSelected: 'Tải đã chọn',
+  transferSelected: 'Chuyển đã chọn',
 
   downloadAll: 'Tải tất cả',
   downloadAllConfirm:

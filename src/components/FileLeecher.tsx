@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Api } from 'telegram'
 import {
   ArrowRight,
@@ -6,6 +6,7 @@ import {
   FileText,
   FolderOpen,
   Loader2,
+  Search,
   Send,
   XCircle,
 } from 'lucide-react'
@@ -45,11 +46,20 @@ export function FileLeecher() {
   const [sourceChats, setSourceChats] = useState<StorageChatOption[]>([])
   const [selectedSource, setSelectedSource] = useState<string>('')
   const [files, setFiles] = useState<FileLeecherMessage[]>([])
+  const [fileSearch, setFileSearch] = useState('')
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set())
   const [destinationChats, setDestinationChats] = useState<StorageChatOption[]>([])
   const [selectedDestination, setSelectedDestination] = useState<string>('')
   const [transfers, setTransfers] = useState<TransferItem[]>([])
   const [loading, setLoading] = useState(false)
+
+  const filteredFiles = useMemo(
+    () =>
+      files.filter((file) =>
+        file.name.toLowerCase().includes(fileSearch.toLowerCase().trim()),
+      ),
+    [files, fileSearch],
+  )
 
   // Step 1: Load source chats (groups/channels)
   useEffect(() => {
@@ -260,39 +270,62 @@ export function FileLeecher() {
     })
   }
 
+  const selectAllFiltered = useCallback(() => {
+    setSelectedFiles(new Set(filteredFiles.map((file) => file.id)))
+  }, [filteredFiles])
+
+  const clearSelectedFiles = useCallback(() => {
+    setSelectedFiles(new Set())
+  }, [])
+
   const reset = () => {
     setStep('source')
     setSelectedSource('')
     setFiles([])
+    setFileSearch('')
     setSelectedFiles(new Set())
     setSelectedDestination('')
     setTransfers([])
   }
 
   return (
-    <div className="flex h-full flex-col bg-slate-900 text-white">
-      <header className="border-b border-slate-700 bg-slate-800 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{t('fileLeecher')}</h1>
+    <div className="flex h-full flex-col gap-4 rounded-[1.5rem] border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+      <div className="flex flex-col gap-3 rounded-3xl bg-slate-50 p-4 dark:bg-slate-900">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{t('fileLeecher')}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Chuyển file giữa nhóm/kênh Telegram mà không rời khỏi giao diện chính.
+            </p>
+          </div>
           <button
+            type="button"
             onClick={reset}
-            className="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
           >
             Reset
           </button>
         </div>
-        <div className="mt-2 flex items-center space-x-4 text-sm text-gray-400">
-          <span className={step === 'source' ? 'text-orange-400' : ''}>1. {t('selectSource')}</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <span className={`rounded-full px-3 py-1 ${step === 'source' ? 'bg-primary/10 text-primary' : 'bg-slate-100 dark:bg-slate-800'}`}>
+            1. {t('selectSource')}
+          </span>
           <ArrowRight className="h-4 w-4" />
-          <span className={step === 'files' ? 'text-orange-400' : ''}>2. {t('selectFiles')}</span>
+          <span className={`rounded-full px-3 py-1 ${step === 'files' ? 'bg-primary/10 text-primary' : 'bg-slate-100 dark:bg-slate-800'}`}>
+            2. {t('selectFiles')}
+          </span>
           <ArrowRight className="h-4 w-4" />
-          <span className={step === 'destination' ? 'text-orange-400' : ''}>3. {t('selectDestination')}</span>
+          <span className={`rounded-full px-3 py-1 ${step === 'destination' ? 'bg-primary/10 text-primary' : 'bg-slate-100 dark:bg-slate-800'}`}>
+            3. {t('selectDestination')}
+          </span>
           <ArrowRight className="h-4 w-4" />
-          <span className={step === 'transfer' ? 'text-orange-400' : ''}>4. {t('startTransfer')}</span>
+          <span className={`rounded-full px-3 py-1 ${step === 'transfer' ? 'bg-primary/10 text-primary' : 'bg-slate-100 dark:bg-slate-800'}`}>
+            4. {t('startTransfer')}
+          </span>
         </div>
-      </header>
+      </div>
 
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto px-1">
         {step === 'source' && (
           <div>
             <h2 className="mb-4 text-lg font-medium">{t('selectSource')}</h2>
@@ -306,7 +339,7 @@ export function FileLeecher() {
                   <div
                     key={chat.peerKey}
                     onClick={() => setSelectedSource(chat.peerKey)}
-                    className={`cursor-pointer rounded-2xl bg-[#1E2330] p-4 hover:bg-slate-800 ${
+                    className={`cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 ${
                       selectedSource === chat.peerKey ? 'ring-2 ring-orange-400' : ''
                     }`}
                   >
@@ -337,39 +370,84 @@ export function FileLeecher() {
         {step === 'files' && (
           <div>
             <h2 className="mb-4 text-lg font-medium">{t('selectFiles')}</h2>
-            <div className="space-y-2">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center space-x-4 rounded-2xl bg-[#1E2330] p-4 hover:bg-slate-800"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedFiles.has(file.id)}
-                    onChange={() => toggleFileSelect(file.id)}
-                    className="h-5 w-5"
-                  />
-                  <FileText className="h-6 w-6 text-gray-400" />
-                  <div className="flex-1">
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-gray-400">
-                      {formatBytes(file.size)} • {file.date.toLocaleDateString()}
-                      {file.noforwards && <span className="ml-2 text-red-400">{t('restricted')}</span>}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {selectedFiles.size > 0 && (
-              <div className="mt-6 flex justify-end">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-1 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+                <Search className="h-4 w-4 text-slate-500" />
+                <input
+                  type="search"
+                  value={fileSearch}
+                  onChange={(e) => setFileSearch(e.target.value)}
+                  placeholder="Filter files"
+                  className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setStep('destination')}
-                  className="rounded-lg bg-teal-500 px-6 py-2 text-white hover:bg-teal-600"
+                  type="button"
+                  onClick={selectAllFiltered}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
                 >
-                  {t('selectDestination')}
+                  {t('selectAll')}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelectedFiles}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                >
+                  {t('clearSelection')}
                 </button>
               </div>
-            )}
+            </div>
+            <div className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+              {filteredFiles.length} / {files.length} file(s) hiện đang được hiển thị.
+              {selectedFiles.size > 0 && ` ${selectedFiles.size} file đã chọn.`}
+            </div>
+            <div className="space-y-2">
+              {filteredFiles.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                  Không có file nào trùng khớp tìm kiếm.
+                </div>
+              ) : (
+                filteredFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center space-x-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:border-primary/80 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-primary"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedFiles.has(file.id)}
+                      onChange={() => toggleFileSelect(file.id)}
+                      className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary"
+                    />
+                    <FileText className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                    <div className="flex-1">
+                      <p className="font-medium">{file.name}</p>
+                      <p className="text-sm text-gray-400">
+                        {formatBytes(file.size)} • {file.date.toLocaleDateString()}
+                        {file.noforwards && <span className="ml-2 text-red-400">{t('restricted')}</span>}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setStep('source')}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                Quay lại nguồn
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep('destination')}
+                disabled={selectedFiles.size === 0}
+                className="rounded-lg bg-teal-500 px-6 py-2 text-white hover:bg-teal-600 disabled:opacity-50"
+              >
+                {t('selectDestination')}
+              </button>
+            </div>
           </div>
         )}
 
@@ -386,7 +464,7 @@ export function FileLeecher() {
                   <div
                     key={chat.peerKey}
                     onClick={() => setSelectedDestination(chat.peerKey)}
-                    className={`cursor-pointer rounded-2xl bg-[#1E2330] p-4 hover:bg-slate-800 ${
+                    className={`cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 ${
                       selectedDestination === chat.peerKey ? 'ring-2 ring-teal-400' : ''
                     }`}
                   >
@@ -401,16 +479,23 @@ export function FileLeecher() {
                 ))}
               </div>
             )}
-            {selectedDestination && (
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={startTransfer}
-                  className="rounded-lg bg-green-500 px-6 py-2 text-white hover:bg-green-600"
-                >
-                  {t('startTransfer')} ({selectedFiles.size} files)
-                </button>
-              </div>
-            )}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setStep('files')}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                Quay lại chọn file
+              </button>
+              <button
+                type="button"
+                onClick={startTransfer}
+                disabled={!selectedDestination}
+                className="rounded-lg bg-green-500 px-6 py-2 text-white hover:bg-green-600 disabled:opacity-50"
+              >
+                {t('startTransfer')} ({selectedFiles.size} files)
+              </button>
+            </div>
           </div>
         )}
 
