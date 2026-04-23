@@ -1,5 +1,6 @@
 <div align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Teledrive Logo" width="120" />
+  <img src="./public/banner.png" alt="Teledrive Logo" width="120" />
+
   <h1>Nothing Teledrive</h1>
   <p><b>Transform your Telegram Saved Messages and Chats into an Infinite, High-Performance Cloud Drive.</b></p>
 </div>
